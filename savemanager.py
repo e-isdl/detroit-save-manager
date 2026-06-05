@@ -10,6 +10,7 @@ lets the player restore an older save before launch.
 
 import configparser
 import logging
+import os
 import re
 import shutil
 import subprocess
@@ -94,7 +95,7 @@ class ConfigManager:
 
     def __init__(self, config_path: Path):
         self.path = config_path
-        self.config = configparser.ConfigParser()
+        self.config = configparser.ConfigParser(interpolation=None)
         if not self.path.exists():
             self._create_default_config()
         self.config.read(self.path, encoding="utf-8")
@@ -135,7 +136,8 @@ class ConfigManager:
         value = self.get(key, fallback)
         if not value:
             return Path()
-        return Path(value).expanduser().expandvars()
+        expanded = os.path.expandvars(os.path.expanduser(value))
+        return Path(expanded)
 
 
 class SaveManager:
