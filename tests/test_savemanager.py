@@ -5,10 +5,12 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from savemanager import (
+    App,
     ConfigManager,
     SaveManager,
     format_age,
@@ -219,6 +221,225 @@ class TestSaveManager(unittest.TestCase):
         for _ in range(5):
             sm.backup_current_save()
         self.assertEqual(len(sm.get_sorted_backups()), 5)
+
+    def test_cleanup_with_negative_max_warns_and_skips(self):
+        sm = SaveManager(self._make_config(max_saves=-5))
+        for _ in range(3):
+            sm.backup_current_save()
+        self.assertEqual(len(sm.get_sorted_backups()), 3)
+
+    def test_backup_copies_subdirectories(self):
+        sub = self.source / "subdir"
+        sub.mkdir()
+        (sub / "nested.dat").write_text("nested-v1")
+        result = self.sm.backup_current_save()
+        self.assertEqual((result / "subdir" / "nested.dat").read_text(), "nested-v1")
+
+    def test_get_sorted_backups_excludes_tmp_folders(self):
+        self.sm.backup_current_save()
+        (self.sm.session_backup_dir / "leftover.tmp").mkdir()
+        names = [b.name for b in self.sm.get_sorted_backups()]
+        self.assertNotIn("leftover.tmp", names)
+        self.assertEqual(len(names), 1)
+
+    def test_get_sorted_backups_sorts_newest_first(self):
+        first = self.sm.backup_current_save()
+        time.sleep(1.05)
+        second = self.sm.backup_current_save()
+        ordered = self.sm.get_sorted_backups()
+        self.assertEqual(ordered[0].name, second.name)
+        self.assertEqual(ordered[1].name, first.name)
+
+    def test_backup_label_with_spaces_preserved(self):
+        result = self.sm.backup_current_save("LAUNCH 2")
+        self.assertIn("LAUNCH 2", result.name)
+
+    def test_restore_creates_source_dir_if_missing(self):
+        backup = self.sm.backup_current_save()
+        shutil.rmtree(self.source)
+        ok = self.sm.restore_save(backup)
+        self.assertTrue(ok)
+        self.assertTrue(self.source.is_dir())
+        self.assertEqual((self.source / "save1.dat").read_text(), "v1")
+
+    def test_backup_idempotent_creates_distinct_folders(self):
+        first = self.sm.backup_current_save()
+        second = self.sm.backup_current_save()
+        self.assertNotEqual(first.name, second.name)
+        self.assertEqual(len(self.sm.get_sorted_backups()), 2)
+
+
+class TestConfigManagerExtras(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = Path(tempfile.mkdtemp())
+        self.config_path = self.tmpdir / "config.ini"
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_get_with_missing_key_uses_fallback(self):
+        self.config_path.write_text("[Settings]\n", encoding="utf-8")
+        cm = ConfigManager(self.config_path)
+        self.assertEqual(cm.get("Nonexistent", "default-value"), "default-value")
+
+    def test_getint_with_missing_key_uses_fallback(self):
+        self.config_path.write_text("[Settings]\n", encoding="utf-8")
+        cm = ConfigManager(self.config_path)
+        self.assertEqual(cm.getint("Nonexistent", 42), 42)
+
+    def test_getboolean_true_values(self):
+        for truthy in ("yes", "true", "1", "on", "Yes", "TRUE"):
+            with self.subTest(value=truthy):
+                self.config_path.write_text(
+                    f"[Settings]\nLaunchBackup = {truthy}\n", encoding="utf-8"
+                )
+                cm = ConfigManager(self.config_path)
+                self.assertTrue(cm.getboolean("LaunchBackup"))
+
+    def test_getboolean_false_values(self):
+        for falsy in ("no", "false", "0", "off", "No", "FALSE"):
+            with self.subTest(value=falsy):
+                self.config_path.write_text(
+                    f"[Settings]\nLaunchBackup = {falsy}\n", encoding="utf-8"
+                )
+                cm = ConfigManager(self.config_path)
+                self.assertFalse(cm.getboolean("LaunchBackup"))
+
+    def test_getint_raises_on_non_numeric(self):
+        self.config_path.write_text(
+            "[Settings]\nMaxAutoSaves = not-a-number\n", encoding="utf-8"
+        )
+        cm = ConfigManager(self.config_path)
+        with self.assertRaises(ValueError):
+            cm.getint("MaxAutoSaves")
+
+    def test_get_path_empty_value_returns_empty_path(self):
+        self.config_path.write_text(
+            "[Settings]\nGameExecutablePath = \n", encoding="utf-8"
+        )
+        cm = ConfigManager(self.config_path)
+        self.assertEqual(str(cm.get_path("GameExecutablePath")), ".")
+
+    def test_get_path_expanduser(self):
+        self.config_path.write_text(
+            "[Settings]\nBackupStoragePath = ~/my-backups\n", encoding="utf-8"
+        )
+        cm = ConfigManager(self.config_path)
+        result = cm.get_path("BackupStoragePath")
+        self.assertNotIn("~", str(result))
+        self.assertTrue(str(result).endswith("my-backups"))
+
+
+class TestAppProcessCheck(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = Path(tempfile.mkdtemp())
+        self.source = self.tmpdir / "src"
+        self.backup_root = self.tmpdir / "backups"
+        self.fake_game = self.tmpdir / "fake_game.exe"
+        self.source.mkdir()
+        self.fake_game.write_bytes(b"")
+        (self.source / "save.dat").write_text("v1")
+        config_path = self.tmpdir / "config.ini"
+        config_path.write_text(
+            "[Settings]\n"
+            f"GameExecutablePath = {self.fake_game}\n"
+            f"SourceSavePath = {self.source}\n"
+            f"BackupStoragePath = {self.backup_root}\n"
+            "SessionName = default\n"
+            "MaxAutoSaves = 50\n",
+            encoding="utf-8",
+        )
+        self._patcher = patch("savemanager.CONFIG_PATH", config_path)
+        self._patcher.start()
+        self.app = App()
+
+    def tearDown(self):
+        self._patcher.stop()
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_is_game_running_true_when_process_in_output(self):
+        mock_result = MagicMock(stdout="INFO: DetroitBecomeHuman.exe  12345")
+        with patch("savemanager.subprocess.run", return_value=mock_result):
+            self.assertTrue(self.app._is_game_running())
+
+    def test_is_game_running_false_when_process_not_in_output(self):
+        mock_result = MagicMock(stdout="INFO: No tasks are running...")
+        with patch("savemanager.subprocess.run", return_value=mock_result):
+            self.assertFalse(self.app._is_game_running())
+
+    def test_is_game_running_false_on_subprocess_exception(self):
+        with patch("savemanager.subprocess.run", side_effect=Exception("boom")):
+            self.assertFalse(self.app._is_game_running())
+
+    def test_wait_for_game_process_returns_true_when_found(self):
+        with patch.object(App, "_is_game_running", return_value=True):
+            self.assertTrue(self.app._wait_for_game_process(timeout=5))
+
+    def test_wait_for_game_process_returns_false_on_timeout(self):
+        with patch.object(App, "_is_game_running", return_value=False), \
+             patch("savemanager.time.sleep"):
+            self.assertFalse(self.app._wait_for_game_process(timeout=1))
+
+
+class TestAppMenu(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = Path(tempfile.mkdtemp())
+        self.source = self.tmpdir / "src"
+        self.backup_root = self.tmpdir / "backups"
+        self.fake_game = self.tmpdir / "fake_game.exe"
+        self.source.mkdir()
+        self.fake_game.write_bytes(b"")
+        (self.source / "save.dat").write_text("v1")
+        config_path = self.tmpdir / "config.ini"
+        config_path.write_text(
+            "[Settings]\n"
+            f"GameExecutablePath = {self.fake_game}\n"
+            f"SourceSavePath = {self.source}\n"
+            f"BackupStoragePath = {self.backup_root}\n"
+            "SessionName = default\n"
+            "MaxAutoSaves = 50\n",
+            encoding="utf-8",
+        )
+        self._patcher = patch("savemanager.CONFIG_PATH", config_path)
+        self._patcher.start()
+        self.app = App()
+        self.app.save_manager.backup_current_save()
+
+    def tearDown(self):
+        self._patcher.stop()
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_q_returns_none(self):
+        with patch("builtins.input", return_value="q"):
+            self.assertIsNone(self.app._display_menu())
+
+    def test_zero_returns_start(self):
+        with patch("builtins.input", return_value="0"):
+            self.assertEqual(self.app._display_menu(), "start")
+
+    def test_empty_input_reprompts(self):
+        with patch("builtins.input", side_effect=["", "q"]):
+            self.assertIsNone(self.app._display_menu())
+
+    def test_non_numeric_input_reprompts(self):
+        with patch("builtins.input", side_effect=["xyz", "q"]):
+            self.assertIsNone(self.app._display_menu())
+
+    def test_out_of_range_number_reprompts(self):
+        with patch("builtins.input", side_effect=["99", "q"]):
+            self.assertIsNone(self.app._display_menu())
+
+    def test_restore_confirm_yes_returns_start(self):
+        with patch("builtins.input", side_effect=["1", "yes"]):
+            self.assertEqual(self.app._display_menu(), "start")
+
+    def test_restore_confirm_no_continues_loop(self):
+        with patch("builtins.input", side_effect=["1", "no", "q"]):
+            self.assertIsNone(self.app._display_menu())
+
+    def test_restore_confirm_anything_besides_yes_cancels(self):
+        with patch("builtins.input", side_effect=["1", "y", "q"]):
+            self.assertIsNone(self.app._display_menu())
 
 
 if __name__ == "__main__":

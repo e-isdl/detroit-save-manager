@@ -91,7 +91,7 @@ MIT — see `LICENSE`.
 
 ## Development
 
-The project ships with a unit test suite that covers the pure helpers, configuration handling, and the data-loss-critical restore and backup paths. No third-party dependencies are needed.
+The project ships with a unit test suite that covers the pure helpers, configuration handling, App-class behavior (with mocked `subprocess` and `input`), and the data-loss-critical restore and backup paths. No third-party dependencies are needed.
 
 Run the tests:
 
@@ -99,4 +99,6 @@ Run the tests:
 python -m unittest tests.test_savemanager -v
 ```
 
-To add a test, drop it in `tests/test_savemanager.py` next to an existing `Test...` class.
+Tests run automatically on push and pull request via the workflow in `.github/workflows/test.yml` (Windows runner, Python 3.10–3.13).
+
+To add a test, drop a `test_...` method into the appropriate `Test...` class in `tests/test_savemanager.py`. New test classes can be added in the same file.
