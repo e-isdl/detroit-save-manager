@@ -62,7 +62,7 @@ Each profile stores the game-specific settings for one game:
 
 Press `P` in the main menu to create, switch, or remove profiles. Profiles are stored as `profiles/<Name>.ini` files next to the script (or `.exe`).
 
-**Built-in preset:** The default process name is `DetroitBecomeHuman.exe` and the default save path points to the Quantic Dream save folder, so *Detroit: Become Human* works out of the box.
+**Defaults:** `GameProcessName` falls back to `DetroitBecomeHuman.exe` and `SourceSavePath` to the Quantic Dream save folder if left unset. Create a profile for any other game — it takes 30 seconds.
 
 ## How it works
 
@@ -78,7 +78,7 @@ Configuration is stored per-game in `profiles/<Name>.ini` files. Settings that a
 | Key | Default | Description |
 |---|---|---|
 | `GameExecutablePath` | *(set by wizard)* | Full path to the game's `.exe`. |
-| `GameProcessName` | `DetroitBecomeHuman.exe` | Process name shown in Task Manager. |
+| `GameProcessName` | `DetroitBecomeHuman.exe` | Process name shown in Task Manager (default works for DBH). |
 | `SourceSavePath` | *(set by wizard)* | Folder containing the live game saves. |
 | `BackupStoragePath` | `%USERPROFILE%\TimeCapsuleBackups` | Root folder for all backups. |
 | `SessionName` | `default` | Sub-folder name for a playthrough. |

@@ -19,7 +19,6 @@ config.ini
 profiles/
 
 backupsave/
-DetroitSaveBackups/
 
 .DS_Store
 Thumbs.db
