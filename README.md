@@ -62,7 +62,7 @@ Each profile stores the game-specific settings for one game:
 
 Press `P` in the main menu to create, switch, or remove profiles. Profiles are stored as `profiles/<Name>.ini` files next to the script (or `.exe`).
 
-**Defaults:** `GameProcessName` falls back to `DetroitBecomeHuman.exe` and `SourceSavePath` to the Quantic Dream save folder if left unset. Create a profile for any other game — it takes 30 seconds.
+**Defaults:** `GameProcessName` falls back to `DetroitBecomeHuman.exe` if left unset. Create a profile for any game - it takes 30 seconds.
 
 ## How it works
 
@@ -78,7 +78,7 @@ Configuration is stored per-game in `profiles/<Name>.ini` files. Settings that a
 | Key | Default | Description |
 |---|---|---|
 | `GameExecutablePath` | *(set by wizard)* | Full path to the game's `.exe`. |
-| `GameProcessName` | `DetroitBecomeHuman.exe` | Process name shown in Task Manager (default works for DBH). |
+| `GameProcessName` | `DetroitBecomeHuman.exe` | Process name shown in Task Manager. |
 | `SourceSavePath` | *(set by wizard)* | Folder containing the live game saves. |
 | `BackupStoragePath` | `%USERPROFILE%\TimeCapsuleBackups` | Root folder for all backups. |
 | `SessionName` | `default` | Sub-folder name for a playthrough. |
@@ -119,7 +119,7 @@ Run the tests:
 python -m unittest tests.test_time_capsule -v
 ```
 
-Tests run automatically on push and pull request via the workflow in `.github/workflows/test.yml` (Windows runner, Python 3.10–3.13).
+Tests run automatically on push and pull request via the workflow in `.github/workflows/test.yml` (Windows runner, Python 3.10-3.13).
 
 To add a test, drop a `test_...` method into the appropriate `Test...` class in `tests/test_time_capsule.py`. New test classes can be added in the same file.
 
