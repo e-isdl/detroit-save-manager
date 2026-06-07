@@ -26,7 +26,7 @@ Each backup is a **time capsule** — a preserved moment you can always return t
 
 **Option A — Standalone .exe (recommended for most users)**
 
-1. Download `Time Capsule.exe` from the [Releases](https://github.com/e-isdl/detroit-save-manager/releases) page.
+1. Download `Time Capsule.exe` from the [Releases](https://github.com/e-isdl/time-capsule/releases) page.
 2. Put it in a folder and **double-click**.
 3. The first-run wizard will ask for a profile name and the path to your game's `.exe`.
 4. That's it. Time Capsule starts and shows the backup menu.
