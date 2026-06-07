@@ -1,8 +1,8 @@
-# time_capsule.py
+﻿# time_capsule.py
 # -*- coding: utf-8 -*-
 
 """
-Time Capsule — universal game save backup & restore.
+Time Capsule - universal game save backup & restore.
 
 Launches a game, creates timestamped save backups while it is running, and
 lets the player restore an older save before launch.  Supports per-game

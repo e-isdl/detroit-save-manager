@@ -1,15 +1,15 @@
-# Time Capsule — Save Game Time Travel
+﻿# Time Capsule - Save Game Time Travel
 
 A lightweight Windows CLI that creates timestamped backups of your save folder while you play any game, and lets you restore any earlier point in seconds.
 
-Each backup is a **time capsule** — a preserved moment you can always return to.
+Each backup is a **time capsule** - a preserved moment you can always return to.
 
 ## Features
 
 - Automatic backups every N minutes while the game is running
 - One final backup when you exit the game
 - Interactive menu to restore any previous save (with confirmation prompt)
-- Per-game profiles — set up each game once, then pick-and-go
+- Per-game profiles - set up each game once, then pick-and-go
 - Per-session folders so multiple playthroughs stay isolated
 - Automatic cleanup that keeps the backup count under a configurable limit
 - Rotating log file (auto-trims to ~6 MB)
@@ -24,14 +24,14 @@ Each backup is a **time capsule** — a preserved moment you can always return t
 
 ## Setup
 
-**Option A — Standalone .exe (recommended for most users)**
+**Option A - Standalone .exe (recommended for most users)**
 
 1. Download `Time.Capsule.v3.0.zip` from the [Releases](https://github.com/e-isdl/time-capsule/releases) page.
 2. Extract the zip and **double-click** `Time Capsule.exe`.
 3. The first-run wizard will ask for your game's `.exe` path.
 4. That's it. Time Capsule starts and shows the backup menu.
 
-**Option B — Python script**
+**Option B - Python script**
 
 1. Download `time_capsule.py`.
 2. Run it:
@@ -42,13 +42,13 @@ Each backup is a **time capsule** — a preserved moment you can always return t
 
 ## How to use
 
-1. **Always launch the game through Time Capsule.** Don't run the game's `.exe` directly — it needs to know when the game is running to make backups.
+1. **Always launch the game through Time Capsule.** Don't run the game's `.exe` directly - it needs to know when the game is running to make backups.
 2. When it starts, you'll see a menu of available backups.
 3. Choose an option:
-   - `0` — Launch the game with the current save (your normal choice, 99% of the time)
-   - `P` — Switch to a different game profile
-   - `1`, `2`, `3`, ... — Restore a specific backup. Type `yes` to confirm.
-   - `Q` — Quit without launching
+   - `0` - Launch the game with the current save (your normal choice, 99% of the time)
+   - `P` - Switch to a different game profile
+   - `1`, `2`, `3`, ... - Restore a specific backup. Type `yes` to confirm.
+   - `Q` - Quit without launching
 4. Time Capsule launches the game and monitors it in the background. Every N minutes, a new capsule is created. When you exit the game, one final capsule is made and it closes itself.
 
 ## Profiles
@@ -99,15 +99,15 @@ Configuration is stored per-game in `profiles/<Name>.ini` files. Settings that a
 
 ## Troubleshooting
 
-- **"Game executable was not found"** — The path in the profile is wrong. Press `P` in the menu to edit or recreate the profile.
-- **"Source save directory not found"** — The path in the profile is wrong, or the game has not yet created a save file. Check the actual save location in Windows Explorer.
-- **No capsules are being created** — Make sure you're launching the game *through Time Capsule*, not by double-clicking the `.exe`. It needs to detect the running game process.
-- **Capsules fill the disk** — Lower `MaxAutoSaves` or raise `SaveFrequencyMinutes` in the profile file.
-- **Restore didn't work** — Check `time_capsule.log` for the error. A "PRE-RESTORE CURRENT" safety capsule is created before each restore, so nothing should be lost.
+- **"Game executable was not found"** - The path in the profile is wrong. Press `P` in the menu to edit or recreate the profile.
+- **"Source save directory not found"** - The path in the profile is wrong, or the game has not yet created a save file. Check the actual save location in Windows Explorer.
+- **No capsules are being created** - Make sure you're launching the game *through Time Capsule*, not by double-clicking the `.exe`. It needs to detect the running game process.
+- **Capsules fill the disk** - Lower `MaxAutoSaves` or raise `SaveFrequencyMinutes` in the profile file.
+- **Restore didn't work** - Check `time_capsule.log` for the error. A "PRE-RESTORE CURRENT" safety capsule is created before each restore, so nothing should be lost.
 
 ## License
 
-MIT — see `LICENSE`.
+MIT - see `LICENSE`.
 
 ## Development
 
