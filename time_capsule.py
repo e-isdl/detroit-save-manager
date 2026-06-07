@@ -506,9 +506,40 @@ class App:
             cfg["Settings"]["SourceSavePath"] = raw or current_save
 
         print("\n--- Backup folder ---")
-        current_backup = self.config_manager.get("BackupStoragePath", str(Path.home() / "TimeCapsuleBackups"))
-        raw = input(f"Backup folder (Enter=default) [{current_backup}]: ").strip()
-        cfg["Settings"]["BackupStoragePath"] = raw or current_backup
+        default_backup = str(Path.home() / "TimeCapsuleBackups")
+        current_backup = self.config_manager.get("BackupStoragePath", default_backup)
+        print(f"  Backups go here: {current_backup}")
+        print("  (Pick a folder on the same drive as your game for fast copies.)")
+        backup_roots = [
+            Path.home() / "TimeCapsuleBackups",
+            Path.home() / "Desktop",
+            Path.home() / "Documents",
+        ]
+        backup_options = []
+        for root in backup_roots:
+            if root.exists():
+                backup_options.append(root)
+        if len(backup_options) > 1:
+            print("  Suggestions:")
+            for i, p in enumerate(backup_options, 1):
+                print(f"  {i}) {p}")
+            print(f"  0) Enter a different path")
+            print(f"  Enter) Use default: {current_backup}")
+            choice = input(f"\nPick a backup folder [or Enter for default]: ").strip()
+            if choice == "0":
+                raw = input(f"Backup folder path: ").strip()
+                cfg["Settings"]["BackupStoragePath"] = raw or current_backup
+            elif choice and choice.isdigit():
+                idx = int(choice) - 1
+                if 0 <= idx < len(backup_options):
+                    cfg["Settings"]["BackupStoragePath"] = str(backup_options[idx] / "TimeCapsuleBackups")
+                else:
+                    cfg["Settings"]["BackupStoragePath"] = current_backup
+            else:
+                cfg["Settings"]["BackupStoragePath"] = current_backup
+        else:
+            raw = input(f"Backup folder (Enter=default) [{current_backup}]: ").strip()
+            cfg["Settings"]["BackupStoragePath"] = raw or current_backup
 
         PROFILES_DIR.mkdir(parents=True, exist_ok=True)
         profile_path = PROFILES_DIR / f"{name}.ini"
