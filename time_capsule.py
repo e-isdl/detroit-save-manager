@@ -459,8 +459,51 @@ class App:
 
         print("\n--- Save folder ---")
         current_save = self.config_manager.get("SourceSavePath", str(DEFAULT_SAVE_DIR))
-        raw = input(f"Save folder (Enter=default) [{current_save}]: ").strip()
-        cfg["Settings"]["SourceSavePath"] = raw or current_save
+        save_roots = [
+            Path.home() / "Saved Games",
+            Path.home() / "Documents" / "My Games",
+        ]
+        save_options = []
+        for root in save_roots:
+            if root.is_dir():
+                for child in sorted(root.iterdir()):
+                    if child.is_dir():
+                        save_options.append((root.name, child))
+        if save_options:
+            print("  Found these save folders on your PC:")
+            seen = set()
+            for i, (parent, child) in enumerate(save_options, 1):
+                p = str(child)
+                if p not in seen:
+                    print(f"  {i}) {p}")
+                    seen.add(p)
+            print("  0) Enter a different path")
+            print(f"  Enter) Use default: {current_save}")
+            choice = input("\nPick a save folder [or Enter for default]: ").strip()
+            if choice == "0":
+                raw = input(f"Full path to your save folder: ").strip()
+                if raw:
+                    cfg["Settings"]["SourceSavePath"] = raw
+                else:
+                    cfg["Settings"]["SourceSavePath"] = current_save
+            elif choice and choice.isdigit():
+                idx = int(choice) - 1
+                seen_list = []
+                for parent, child in save_options:
+                    p = str(child)
+                    if p not in seen_list:
+                        seen_list.append(p)
+                if 0 <= idx < len(seen_list):
+                    cfg["Settings"]["SourceSavePath"] = seen_list[idx]
+                else:
+                    cfg["Settings"]["SourceSavePath"] = current_save
+            else:
+                cfg["Settings"]["SourceSavePath"] = current_save
+        else:
+            print("  Could not find any saved game folders automatically.")
+            print(f"  (Look in: {save_roots[0]} or {save_roots[1]})")
+            raw = input(f"Save folder (Enter=default) [{current_save}]: ").strip()
+            cfg["Settings"]["SourceSavePath"] = raw or current_save
 
         print("\n--- Backup folder ---")
         current_backup = self.config_manager.get("BackupStoragePath", str(Path.home() / "TimeCapsuleBackups"))
