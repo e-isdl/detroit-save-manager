@@ -27,8 +27,8 @@ APP_VERSION = "3.0"
 CONFIG_FILE = "config.ini"
 LOG_FILE = "time_capsule.log"
 PROFILES_DIR_NAME = "profiles"
-DEFAULT_PROCESS_NAME = "DetroitBecomeHuman.exe"
-DEFAULT_SAVE_DIR = Path.home() / "Saved Games" / "Quantic Dream" / "Detroit Become Human"
+DEFAULT_PROCESS_NAME = "Game.exe"
+DEFAULT_SAVE_DIR = Path.home() / "Saved Games"
 INVALID_SESSION_CHARS = r'<>:"/\|?*'
 
 

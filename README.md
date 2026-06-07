@@ -62,7 +62,7 @@ Each profile stores the game-specific settings for one game:
 
 Press `P` in the main menu to create, switch, or remove profiles. Profiles are stored as `profiles/<Name>.ini` files next to the script (or `.exe`).
 
-**Defaults:** `GameProcessName` falls back to `DetroitBecomeHuman.exe` if left unset. Create a profile for any game - it takes 30 seconds.
+**Defaults:** `GameProcessName` defaults to `Game.exe` and `SourceSavePath` to `%USERPROFILE%\Saved Games`. These are just fallbacks — the wizard sets the right values when you create a profile.
 
 ## How it works
 
@@ -78,7 +78,7 @@ Configuration is stored per-game in `profiles/<Name>.ini` files. Settings that a
 | Key | Default | Description |
 |---|---|---|
 | `GameExecutablePath` | *(set by wizard)* | Full path to the game's `.exe`. |
-| `GameProcessName` | `DetroitBecomeHuman.exe` | Process name shown in Task Manager. |
+| `GameProcessName` | `Game.exe` | Process name shown in Task Manager. |
 | `SourceSavePath` | *(set by wizard)* | Folder containing the live game saves. |
 | `BackupStoragePath` | `%USERPROFILE%\TimeCapsuleBackups` | Root folder for all backups. |
 | `SessionName` | `default` | Sub-folder name for a playthrough. |

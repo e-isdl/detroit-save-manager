@@ -363,7 +363,7 @@ class TestAppProcessCheck(unittest.TestCase):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def test_is_game_running_true_when_process_in_output(self):
-        mock_result = MagicMock(stdout="INFO: DetroitBecomeHuman.exe  12345")
+        mock_result = MagicMock(stdout="INFO: Game.exe  12345")
         with patch("time_capsule.subprocess.run", return_value=mock_result):
             self.assertTrue(self.app._is_game_running())
 
