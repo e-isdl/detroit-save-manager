@@ -9,6 +9,7 @@ venv/
 env/
 build/
 dist/
+*.spec
 
 *.log
 save_manager.log.*

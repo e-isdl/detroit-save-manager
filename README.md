@@ -23,6 +23,16 @@ Think of it as a "time machine" for your decisions.
 
 ## Setup
 
+**Option A — Standalone .exe (recommended for most users)**
+
+1. Download `Detroit Save Manager.exe` from the [Releases](https://github.com/e-isdl/detroit-save-manager/releases) page.
+2. Put it in a folder on its own (it will create `config.ini` next to itself on first run).
+3. **Double-click** the .exe. It will create a default `config.ini`.
+4. Open `config.ini` in Notepad and set `GameExecutablePath` to your game's `.exe`.
+5. Double-click again to launch the manager.
+
+**Option B — Python script**
+
 1. Make sure `savemanager.py`, this README, and `LICENSE` are in the same folder.
 2. Copy `config.example.ini` to `config.ini` (a default `config.ini` is also created automatically on first run if you skip this step).
 3. Open `config.ini` in Notepad and set the paths under `[Settings]`:
@@ -102,3 +112,12 @@ python -m unittest tests.test_savemanager -v
 Tests run automatically on push and pull request via the workflow in `.github/workflows/test.yml` (Windows runner, Python 3.10–3.13).
 
 To add a test, drop a `test_...` method into the appropriate `Test...` class in `tests/test_savemanager.py`. New test classes can be added in the same file.
+
+**Building the .exe (from source)**
+
+```
+pip install pyinstaller
+pyinstaller --onefile --name "Detroit Save Manager" savemanager.py
+```
+
+Output is at `dist/Detroit Save Manager.exe` (~8.5 MB).
