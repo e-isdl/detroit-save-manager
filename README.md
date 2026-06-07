@@ -26,10 +26,9 @@ Think of it as a "time machine" for your decisions.
 **Option A — Standalone .exe (recommended for most users)**
 
 1. Download `Detroit Save Manager.exe` from the [Releases](https://github.com/e-isdl/detroit-save-manager/releases) page.
-2. Put it in a folder on its own (it will create `config.ini` next to itself on first run).
-3. **Double-click** the .exe. It will create a default `config.ini`.
-4. Open `config.ini` in Notepad and set `GameExecutablePath` to your game's `.exe`.
-5. Double-click again to launch the manager.
+2. Put it in a folder on its own.
+3. **Double-click** it. The first-run wizard will ask for the path to your game's `.exe`.
+4. That's it. The manager starts and shows the backup menu.
 
 **Option B — Python script**
 

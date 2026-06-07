@@ -338,6 +338,61 @@ class App:
             time.sleep(2)
         return False
 
+    def _first_run_wizard(self) -> bool:
+        print(f"\n{'=' * 70}")
+        print(f"Welcome to {APP_NAME} v{APP_VERSION}!")
+        print(f"{'=' * 70}")
+
+        current_raw = self.config_manager.get("GameExecutablePath")
+        if current_raw:
+            print(f"The config file has: {Path(current_raw).expanduser()}")
+            print("That file was not found. Let's fix it.\n")
+        else:
+            print("This looks like your first run. Let's set up the paths.\n")
+
+        while True:
+            raw = input("Full path to DetroitBecomeHuman.exe: ").strip().strip('"\'')
+            if not raw:
+                print("  Path cannot be empty.")
+                continue
+            if raw.lower() in ("skip", "exit", "quit"):
+                return False
+
+            p = Path(raw).expanduser()
+            if p.suffix.lower() != ".exe":
+                p = p / "DetroitBecomeHuman.exe"
+            p = p.resolve()
+
+            if not p.is_file():
+                print(f"  File not found: {p}")
+                print("  Check the path and try again, or type 'skip'.\n")
+                continue
+
+            self.game_path = p
+            self.game_working_dir = p.parent
+            self.config_manager.config.set("Settings", "GameExecutablePath", str(p))
+            break
+
+        default_save = str(DEFAULT_SAVE_DIR)
+        current_save = self.config_manager.get("SourceSavePath")
+        prompt = f"Save folder (Enter=default) [{current_save or default_save}]: "
+        raw = input(prompt).strip()
+        if raw:
+            self.config_manager.config.set("Settings", "SourceSavePath", raw)
+
+        default_backup = str(Path.home() / "DetroitSaveBackups")
+        current_backup = self.config_manager.get("BackupStoragePath")
+        prompt = f"Backup folder (Enter=default) [{current_backup or default_backup}]: "
+        raw = input(prompt).strip()
+        if raw:
+            self.config_manager.config.set("Settings", "BackupStoragePath", raw)
+
+        with open(self.config_manager.path, "w", encoding="utf-8") as f:
+            self.config_manager.config.write(f)
+        logging.info("First-run wizard completed. Config saved to %s", self.config_manager.path)
+        print("\nConfiguration saved! Starting the Save Manager...\n")
+        return True
+
     def _display_menu(self):
         while True:
             backups = self.save_manager.get_sorted_backups()
@@ -392,8 +447,9 @@ class App:
             return
 
         if not self.game_path or not self.game_working_dir:
-            input("Execution halted. Check config.ini, then press Enter to exit.")
-            return
+            if not self._first_run_wizard():
+                input("Setup cancelled. Press Enter to exit.")
+                return
 
         action = self._display_menu()
         if action != "start":

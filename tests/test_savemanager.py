@@ -441,6 +441,32 @@ class TestAppMenu(unittest.TestCase):
         with patch("builtins.input", side_effect=["1", "y", "q"]):
             self.assertIsNone(self.app._display_menu())
 
+    def test_wizard_skip_returns_false(self):
+        self.app.game_path = None
+        self.app.game_working_dir = None
+        self.app.config_manager.config.set("Settings", "GameExecutablePath", "")
+        with patch("builtins.input", return_value="skip"):
+            self.assertFalse(self.app._first_run_wizard())
+        self.assertIsNone(self.app.game_path)
+
+    def test_wizard_valid_path_returns_true(self):
+        self.app.game_path = None
+        self.app.game_working_dir = None
+        self.app.config_manager.config.set("Settings", "GameExecutablePath", "")
+        with patch("builtins.input", side_effect=[str(self.fake_game), "", ""]):
+            self.assertTrue(self.app._first_run_wizard())
+        self.assertEqual(self.app.game_path, self.fake_game)
+        self.assertEqual(str(self.app.game_working_dir), str(self.tmpdir))
+
+    def test_wizard_retries_on_bad_path(self):
+        self.app.game_path = None
+        self.app.game_working_dir = None
+        self.app.config_manager.config.set("Settings", "GameExecutablePath", "")
+        bad = str(self.tmpdir / "nonexistent.exe")
+        with patch("builtins.input", side_effect=[bad, str(self.fake_game), "", ""]):
+            self.assertTrue(self.app._first_run_wizard())
+        self.assertEqual(self.app.game_path, self.fake_game)
+
 
 if __name__ == "__main__":
     logging.disable(logging.CRITICAL)
