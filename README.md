@@ -1,8 +1,8 @@
-# Save Manager — Universal Game Save Backup & Restore
+# Time Capsule — Save Game Time Travel
 
 A lightweight Windows CLI that creates timestamped backups of your save folder while you play any game, and lets you restore any earlier point in seconds.
 
-Think of it as a "time machine" for your decisions, in any single-player game. Supports per-game profiles so you can switch between games with one keypress.
+Each backup is a **time capsule** — a preserved moment you can always return to.
 
 ## Features
 
@@ -26,10 +26,10 @@ Think of it as a "time machine" for your decisions, in any single-player game. S
 
 **Option A — Standalone .exe (recommended for most users)**
 
-1. Download the `.exe` from the [Releases](https://github.com/e-isdl/detroit-save-manager/releases) page.
+1. Download `Time Capsule.exe` from the [Releases](https://github.com/e-isdl/detroit-save-manager/releases) page.
 2. Put it in a folder and **double-click**.
 3. The first-run wizard will ask for a profile name and the path to your game's `.exe`.
-4. That's it. The manager starts and shows the backup menu.
+4. That's it. Time Capsule starts and shows the backup menu.
 
 **Option B — Python script**
 
@@ -42,14 +42,14 @@ Think of it as a "time machine" for your decisions, in any single-player game. S
 
 ## How to use
 
-1. **Always launch the game through this script.** Don't run the game's `.exe` directly — the script needs to know when the game is running to make backups.
-2. When the script starts, you'll see a menu of available backups.
+1. **Always launch the game through Time Capsule.** Don't run the game's `.exe` directly — it needs to know when the game is running to make backups.
+2. When it starts, you'll see a menu of available backups.
 3. Choose an option:
    - `0` — Launch the game with the current save (your normal choice, 99% of the time)
    - `P` — Switch to a different game profile
-   - `1`, `2`, `3`, ... — Restore a specific backup. The script will ask you to type `yes` to confirm.
+   - `1`, `2`, `3`, ... — Restore a specific backup. Type `yes` to confirm.
    - `Q` — Quit without launching
-4. The script launches the game and monitors it in the background. Every N minutes, a new backup is created. When you exit the game, one final backup is made and the script closes itself.
+4. Time Capsule launches the game and monitors it in the background. Every N minutes, a new capsule is created. When you exit the game, one final capsule is made and it closes itself.
 
 ## Profiles
 
@@ -66,10 +66,10 @@ Press `P` in the main menu to create, switch, or remove profiles. Profiles are s
 
 ## How it works
 
-- **Backup.** On each tick, the script copies the entire live save folder to a new timestamped sub-folder under your backup location, named `$[YYYY-MM-DD HH.MM.SS]`. The copy is staged to a `.tmp` folder and atomically renamed, so a backup that gets interrupted mid-write never produces a half-copied snapshot.
-- **Restore.** The script performs a safe swap: it backs up your current save as a safety net, then replaces the live save with the contents of the chosen backup. If anything goes wrong during the swap, the original save is automatically moved back into place.
-- **Cleanup.** When the number of backups exceeds `MaxAutoSaves`, the oldest ones are deleted automatically. Set to `0` to disable cleanup.
-- **Log.** All activity is logged to `save_manager.log` (rotates at 2 MB, keeps 3 backups).
+- **Backup (create a capsule).** On each tick, the entire live save folder is copied to a new timestamped sub-folder under your backup location, named `$[YYYY-MM-DD HH.MM.SS]`. The copy is staged to a `.tmp` folder and atomically renamed, so a backup that gets interrupted mid-write never produces a half-copied snapshot.
+- **Restore (open a capsule).** A safe swap is performed: your current save is backed up as a safety net, then the live save is replaced with the contents of the chosen backup. If anything goes wrong, the original save is automatically moved back into place.
+- **Cleanup.** When the number of capsules exceeds `MaxAutoSaves`, the oldest ones are deleted automatically. Set to `0` to disable cleanup.
+- **Log.** All activity is logged to `time_capsule.log` (rotates at 2 MB, keeps 3 backups).
 
 ## Configuration
 
@@ -80,7 +80,7 @@ Configuration is stored per-game in `profiles/<Name>.ini` files. Settings that a
 | `GameExecutablePath` | *(set by wizard)* | Full path to the game's `.exe`. |
 | `GameProcessName` | `DetroitBecomeHuman.exe` | Process name shown in Task Manager. |
 | `SourceSavePath` | *(set by wizard)* | Folder containing the live game saves. |
-| `BackupStoragePath` | `%USERPROFILE%\SaveManagerBackups` | Root folder for all backups. |
+| `BackupStoragePath` | `%USERPROFILE%\TimeCapsuleBackups` | Root folder for all backups. |
 | `SessionName` | `default` | Sub-folder name for a playthrough. |
 | `SaveFrequencyMinutes` | `5` | Minutes between automatic backups. |
 | `MaxAutoSaves` | `50` | Maximum backups to keep. `0` = unlimited. |
@@ -88,9 +88,9 @@ Configuration is stored per-game in `profiles/<Name>.ini` files. Settings that a
 
 ## Safety notes
 
-- The script always backs up your current save before restoring one, so restoring is reversible.
-- Backups live in a different folder from your live saves. Deleting your live save folder does not affect your backups.
-- The script only writes inside the configured `BackupStoragePath`. It validates that any restore target lives inside that path before doing anything.
+- Your current save is always backed up before restoring one, so restoring is reversible.
+- Capsules live in a different folder from your live saves. Deleting your live save folder does not affect your capsules.
+- Writes only happen inside the configured `BackupStoragePath`. Any restore target is validated to live inside that path before anything is done.
 
 ## Limitations
 
@@ -101,9 +101,9 @@ Configuration is stored per-game in `profiles/<Name>.ini` files. Settings that a
 
 - **"Game executable was not found"** — The path in the profile is wrong. Press `P` in the menu to edit or recreate the profile.
 - **"Source save directory not found"** — The path in the profile is wrong, or the game has not yet created a save file. Check the actual save location in Windows Explorer.
-- **No backups are being created** — Make sure you're launching the game *through this script*, not by double-clicking the `.exe`. The script needs to detect the running game process.
-- **Backups fill the disk** — Lower `MaxAutoSaves` or raise `SaveFrequencyMinutes` in the profile file.
-- **Restore didn't work** — Check `save_manager.log` for the error. The script writes a "PRE-RESTORE CURRENT" safety backup before each restore, so nothing should be lost.
+- **No capsules are being created** — Make sure you're launching the game *through Time Capsule*, not by double-clicking the `.exe`. It needs to detect the running game process.
+- **Capsules fill the disk** — Lower `MaxAutoSaves` or raise `SaveFrequencyMinutes` in the profile file.
+- **Restore didn't work** — Check `time_capsule.log` for the error. A "PRE-RESTORE CURRENT" safety capsule is created before each restore, so nothing should be lost.
 
 ## License
 
@@ -127,7 +127,7 @@ To add a test, drop a `test_...` method into the appropriate `Test...` class in 
 
 ```
 pip install pyinstaller
-pyinstaller --onefile --name "Save Manager" savemanager.py
+pyinstaller --onefile --name "Time Capsule" savemanager.py
 ```
 
-Output is at `dist/Save Manager.exe` (~8.5 MB).
+Output is at `dist/Time Capsule.exe` (~8.5 MB).

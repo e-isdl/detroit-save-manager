@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Save Manager — universal game save backup & restore.
+Time Capsule — universal game save backup & restore.
 
 Launches a game, creates timestamped save backups while it is running, and
 lets the player restore an older save before launch.  Supports per-game
@@ -22,10 +22,10 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 
-APP_NAME = "Save Manager"
+APP_NAME = "Time Capsule"
 APP_VERSION = "3.0"
 CONFIG_FILE = "config.ini"
-LOG_FILE = "save_manager.log"
+LOG_FILE = "time_capsule.log"
 PROFILES_DIR_NAME = "profiles"
 DEFAULT_PROCESS_NAME = "DetroitBecomeHuman.exe"
 DEFAULT_SAVE_DIR = Path.home() / "Saved Games" / "Quantic Dream" / "Detroit Become Human"
@@ -107,16 +107,16 @@ class ConfigManager:
         self.config["Settings"] = {
             "GameExecutablePath": "",
             "SourceSavePath": str(DEFAULT_SAVE_DIR),
-            "BackupStoragePath": str(Path.home() / "DetroitSaveBackups"),
+            "BackupStoragePath": str(Path.home() / "TimeCapsuleBackups"),
             "SessionName": "default",
             "SaveFrequencyMinutes": "5",
             "MaxAutoSaves": "50",
             "LaunchBackup": "yes",
         }
         self.config["Documentation"] = {
-            "Info": "Edit the Settings section. GameExecutablePath is required.",
-            "GameExecutablePath": "Full path to DetroitBecomeHuman.exe.",
-            "SourceSavePath": "Folder containing the live Detroit: Become Human saves.",
+            "Info": "Edit the Settings section or create a profile from the menu.",
+            "GameExecutablePath": "Full path to the game .exe (required).",
+            "SourceSavePath": "Folder containing the live game saves.",
             "BackupStoragePath": "Folder where timestamped backups will be stored.",
             "SessionName": "Sub-folder name for a playthrough.",
             "SaveFrequencyMinutes": "How often to back up while the game is running.",
@@ -463,7 +463,7 @@ class App:
         cfg["Settings"]["SourceSavePath"] = raw or current_save
 
         print("\n--- Backup folder ---")
-        current_backup = self.config_manager.get("BackupStoragePath", str(Path.home() / "SaveManagerBackups"))
+        current_backup = self.config_manager.get("BackupStoragePath", str(Path.home() / "TimeCapsuleBackups"))
         raw = input(f"Backup folder (Enter=default) [{current_backup}]: ").strip()
         cfg["Settings"]["BackupStoragePath"] = raw or current_backup
 
