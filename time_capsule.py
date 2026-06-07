@@ -425,50 +425,173 @@ class App:
 
         print("\n--- Game executable ---")
         current_raw = self.config_manager.get("GameExecutablePath", "")
-        print(f"  Typical install locations:")
-        print(f"    C:\\Program Files\\<Game>\\<Game>.exe")
-        print(f"    C:\\Program Files (x86)\\<Game>\\<Game>.exe")
-        if current_raw:
-            print(f"    Or paste the path you used before: {current_raw}")
-        while True:
-            hint = f" [{current_raw}]" if current_raw else ""
-            raw = input(f"Full path to the game .exe{hint}: ").strip().strip('"\'')
-            if not raw and current_raw:
-                raw = current_raw
-            if not raw:
-                print("  Path cannot be empty. Type 'skip' to cancel.")
-                continue
-            if raw.lower() in ("skip", "exit", "quit"):
+        exe_roots = [
+            Path(os.environ.get("ProgramFiles", "C:\\Program Files")),
+            Path(os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")),
+        ]
+        exe_folders = []
+        for root in exe_roots:
+            if root.is_dir():
+                for child in sorted(root.iterdir()):
+                    if child.is_dir():
+                        exe_folders.append(child)
+        if exe_folders:
+            print("  Pick your game's installation folder:")
+            for i, p in enumerate(exe_folders[:30], 1):
+                print(f"  {i}) {p.name}")
+            print("  P) Paste the full path to the .exe")
+            if current_raw:
+                print(f"  Enter) Use previous: {current_raw}")
+            else:
+                print(f"  Enter) Paste instead")
+            choice = input("\nChoice: ").strip().lower()
+            if choice in ("skip", "exit", "quit"):
                 return False
+        else:
+            choice = "p"
 
-            p = Path(raw).expanduser()
-            if p.suffix.lower() != ".exe":
-                if p.is_dir():
-                    print("  That's a directory. Enter the full path including .exe.")
-                else:
+        if choice == "p" or not choice:
+            raw = None
+            while True:
+                prompt = "Full path to the game .exe (or 'skip' to cancel): "
+                if not raw:
+                    raw = input(prompt).strip().strip('"\'')
+                if not raw:
+                    raw = input(prompt).strip().strip('"\'')
+                    continue
+                if raw.lower() in ("skip", "exit", "quit"):
+                    return False
+                p = Path(raw).expanduser()
+                if p.suffix.lower() != ".exe":
                     print("  Path must end with .exe")
-                continue
-
-            p = p.resolve()
-            if not p.is_file():
-                print(f"  File not found: {p}")
-                print("  Check the path and try again, or type 'skip'.\n")
-                continue
-
-            cfg["Settings"]["GameExecutablePath"] = str(p)
-            cfg["Settings"]["GameProcessName"] = p.name
-            self.game_path = p
-            self.game_working_dir = p.parent
-            self.game_process_name = p.name
-            break
+                    raw = None
+                    continue
+                p = p.resolve()
+                if not p.is_file():
+                    print(f"  File not found: {p}")
+                    raw = None
+                    continue
+                cfg["Settings"]["GameExecutablePath"] = str(p)
+                cfg["Settings"]["GameProcessName"] = p.name
+                self.game_path = p
+                self.game_working_dir = p.parent
+                self.game_process_name = p.name
+                break
+        elif choice.isdigit():
+            idx = int(choice) - 1
+            if 0 <= idx < len(exe_folders):
+                folder = exe_folders[idx]
+                exes = sorted(folder.rglob("*.exe"))
+                if not exes:
+                    print(f"  No .exe files in {folder.name}. Paste the path instead.")
+                    raw = None
+                    while True:
+                        raw = input("Full path to the game .exe: ").strip().strip('"\'')
+                        if not raw:
+                            continue
+                        p = Path(raw).expanduser().resolve()
+                        if p.is_file() and p.suffix.lower() == ".exe":
+                            cfg["Settings"]["GameExecutablePath"] = str(p)
+                            cfg["Settings"]["GameProcessName"] = p.name
+                            self.game_path = p
+                            self.game_working_dir = p.parent
+                            self.game_process_name = p.name
+                            break
+                        print("  File not found or not an .exe.")
+                else:
+                    print(f"\n  .exe files in {folder.name}:")
+                    for i, x in enumerate(exes[:20], 1):
+                        print(f"  {i}) {x.name}")
+                    print("  P) Paste a different path")
+                    sub = input("\nPick the game .exe: ").strip().lower()
+                    if sub == "p" or not sub:
+                        raw = None
+                        while True:
+                            raw = input("Full path to the game .exe: ").strip().strip('"\'')
+                            if not raw:
+                                continue
+                            p = Path(raw).expanduser().resolve()
+                            if p.is_file() and p.suffix.lower() == ".exe":
+                                cfg["Settings"]["GameExecutablePath"] = str(p)
+                                cfg["Settings"]["GameProcessName"] = p.name
+                                self.game_path = p
+                                self.game_working_dir = p.parent
+                                self.game_process_name = p.name
+                                break
+                            print("  File not found or not an .exe.")
+                    elif sub.isdigit():
+                        si = int(sub) - 1
+                        if 0 <= si < len(exes):
+                            cfg["Settings"]["GameExecutablePath"] = str(exes[si])
+                            cfg["Settings"]["GameProcessName"] = exes[si].name
+                            self.game_path = exes[si]
+                            self.game_working_dir = exes[si].parent
+                            self.game_process_name = exes[si].name
+                        else:
+                            return False
+                    else:
+                        return False
+            else:
+                return False
+        else:
+            # User typed something else — treat as paste attempt
+            raw = choice
+            while True:
+                p = Path(raw).expanduser()
+                if p.suffix.lower() != ".exe":
+                    print("  Path must end with .exe")
+                    raw = input("Full path to the game .exe: ").strip().strip('"\'')
+                    if not raw:
+                        return False
+                    continue
+                p = p.resolve()
+                if not p.is_file():
+                    print(f"  File not found: {p}")
+                    raw = input("Full path (or 'skip'): ").strip().strip('"\'')
+                    if not raw or raw.lower() in ("skip", "exit", "quit"):
+                        return False
+                    continue
+                cfg["Settings"]["GameExecutablePath"] = str(p)
+                cfg["Settings"]["GameProcessName"] = p.name
+                self.game_path = p
+                self.game_working_dir = p.parent
+                self.game_process_name = p.name
+                break
 
         print("\n--- Save folder ---")
         current_save = self.config_manager.get("SourceSavePath", str(DEFAULT_SAVE_DIR))
-        print(f"  Typical save locations:")
-        print(f"    C:\\Users\\<You>\\Saved Games\\<Game>")
-        print(f"    C:\\Users\\<You>\\Documents\\My Games\\<Game>")
-        raw = input(f"Paste your save folder path, or Enter for default [{current_save}]: ").strip()
-        cfg["Settings"]["SourceSavePath"] = raw or current_save
+        save_roots = [
+            Path.home() / "Saved Games",
+            Path.home() / "Documents" / "My Games",
+        ]
+        save_options = []
+        for root in save_roots:
+            if root.is_dir():
+                for child in sorted(root.iterdir()):
+                    if child.is_dir():
+                        save_options.append(child)
+        if save_options:
+            print("  Pick your game's save folder:")
+            for i, p in enumerate(save_options, 1):
+                print(f"  {i}) {p}")
+            print("  P) Paste a different path")
+            print(f"  Enter) Use default: {current_save}")
+            choice = input("\nChoice: ").strip().lower()
+        else:
+            print("  No game save folders detected automatically.")
+            print(f"  Look in: {save_roots[0]} or {save_roots[1]}")
+            choice = "p"
+        if choice == "p":
+            raw = input(f"Save folder path (Enter for default): ").strip()
+            cfg["Settings"]["SourceSavePath"] = raw or current_save
+        elif choice and choice.isdigit():
+            idx = int(choice) - 1
+            if 0 <= idx < len(save_options):
+                cfg["Settings"]["SourceSavePath"] = str(save_options[idx])
+            else:
+                cfg["Settings"]["SourceSavePath"] = current_save
+        else:
+            cfg["Settings"]["SourceSavePath"] = current_save
 
         print("\n--- Backup folder ---")
         current_backup = self.config_manager.get("BackupStoragePath", str(Path.home() / "TimeCapsuleBackups"))
