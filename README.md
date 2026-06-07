@@ -1,14 +1,15 @@
-# Detroit: Become Human — Save Manager
+# Save Manager — Universal Game Save Backup & Restore
 
-A lightweight Windows CLI that creates timestamped backups of your *Detroit: Become Human* save folder while you play, and lets you restore any earlier point in seconds.
+A lightweight Windows CLI that creates timestamped backups of your save folder while you play any game, and lets you restore any earlier point in seconds.
 
-Think of it as a "time machine" for your decisions.
+Think of it as a "time machine" for your decisions, in any single-player game. Supports per-game profiles so you can switch between games with one keypress.
 
 ## Features
 
 - Automatic backups every N minutes while the game is running
 - One final backup when you exit the game
 - Interactive menu to restore any previous save (with confirmation prompt)
+- Per-game profiles — set up each game once, then pick-and-go
 - Per-session folders so multiple playthroughs stay isolated
 - Automatic cleanup that keeps the backup count under a configurable limit
 - Rotating log file (auto-trims to ~6 MB)
@@ -18,31 +19,26 @@ Think of it as a "time machine" for your decisions.
 ## Requirements
 
 - Windows
-- Python 3.10 or newer
-- A copy of *Detroit: Become Human*
+- Python 3.10 or newer (only needed if running from source)
+- Any game that saves locally to a folder
 
 ## Setup
 
 **Option A — Standalone .exe (recommended for most users)**
 
-1. Download `Detroit Save Manager.exe` from the [Releases](https://github.com/e-isdl/detroit-save-manager/releases) page.
-2. Put it in a folder on its own.
-3. **Double-click** it. The first-run wizard will ask for the path to your game's `.exe`.
+1. Download the `.exe` from the [Releases](https://github.com/e-isdl/detroit-save-manager/releases) page.
+2. Put it in a folder and **double-click**.
+3. The first-run wizard will ask for a profile name and the path to your game's `.exe`.
 4. That's it. The manager starts and shows the backup menu.
 
 **Option B — Python script**
 
-1. Make sure `savemanager.py`, this README, and `LICENSE` are in the same folder.
-2. Copy `config.example.ini` to `config.ini` (a default `config.ini` is also created automatically on first run if you skip this step).
-3. Open `config.ini` in Notepad and set the paths under `[Settings]`:
-   - `GameExecutablePath` — full path to `DetroitBecomeHuman.exe`
-   - `SourceSavePath` — the folder where the game stores your live saves (defaults to the standard Quantic Dream location)
-   - `BackupStoragePath` — the folder where timestamped backups will be stored
-4. Run the script:
-
+1. Download `savemanager.py`.
+2. Run it:
    ```
    python savemanager.py
    ```
+3. The first-run wizard will guide you through creating a profile.
 
 ## How to use
 
@@ -50,9 +46,23 @@ Think of it as a "time machine" for your decisions.
 2. When the script starts, you'll see a menu of available backups.
 3. Choose an option:
    - `0` — Launch the game with the current save (your normal choice, 99% of the time)
+   - `P` — Switch to a different game profile
    - `1`, `2`, `3`, ... — Restore a specific backup. The script will ask you to type `yes` to confirm.
    - `Q` — Quit without launching
 4. The script launches the game and monitors it in the background. Every N minutes, a new backup is created. When you exit the game, one final backup is made and the script closes itself.
+
+## Profiles
+
+Each profile stores the game-specific settings for one game:
+
+- Game executable path
+- Game process name (for `tasklist` detection)
+- Save folder location
+- Backup storage folder
+
+Press `P` in the main menu to create, switch, or remove profiles. Profiles are stored as `profiles/<Name>.ini` files next to the script (or `.exe`).
+
+**Built-in preset:** The default process name is `DetroitBecomeHuman.exe` and the default save path points to the Quantic Dream save folder, so *Detroit: Become Human* works out of the box.
 
 ## How it works
 
@@ -63,17 +73,18 @@ Think of it as a "time machine" for your decisions.
 
 ## Configuration
 
-All options live in `config.ini` under `[Settings]`. See `config.example.ini` for the full list with descriptions.
+Configuration is stored per-game in `profiles/<Name>.ini` files. Settings that apply across all games live in `config.ini`.
 
 | Key | Default | Description |
 |---|---|---|
-| `GameExecutablePath` | *(empty)* | Full path to `DetroitBecomeHuman.exe`. Required. |
-| `SourceSavePath` | `%USERPROFILE%\Saved Games\Quantic Dream\Detroit Become Human` | Folder containing the live game saves. |
-| `BackupStoragePath` | `%USERPROFILE%\DetroitSaveBackups` | Root folder for all backups. A sub-folder named after `SessionName` is created inside. |
-| `SessionName` | `default` | Sub-folder name for a playthrough. Change this to keep multiple playthroughs separate. |
-| `SaveFrequencyMinutes` | `5` | Minutes between automatic backups while the game is running. |
+| `GameExecutablePath` | *(set by wizard)* | Full path to the game's `.exe`. |
+| `GameProcessName` | `DetroitBecomeHuman.exe` | Process name shown in Task Manager. |
+| `SourceSavePath` | *(set by wizard)* | Folder containing the live game saves. |
+| `BackupStoragePath` | `%USERPROFILE%\SaveManagerBackups` | Root folder for all backups. |
+| `SessionName` | `default` | Sub-folder name for a playthrough. |
+| `SaveFrequencyMinutes` | `5` | Minutes between automatic backups. |
 | `MaxAutoSaves` | `50` | Maximum backups to keep. `0` = unlimited. |
-| `LaunchBackup` | `yes` | Create an extra backup right before launching the game. |
+| `LaunchBackup` | `yes` | Create an extra backup right before launching. |
 
 ## Safety notes
 
@@ -88,10 +99,10 @@ All options live in `config.ini` under `[Settings]`. See `config.example.ini` fo
 
 ## Troubleshooting
 
-- **"Game executable was not found"** — The path in `GameExecutablePath` is wrong. Open `config.ini` and verify it points to the actual `.exe`.
-- **"Source save directory not found"** — The path in `SourceSavePath` is wrong, or the game has not yet created a save file. Check the actual save location in Windows Explorer.
+- **"Game executable was not found"** — The path in the profile is wrong. Press `P` in the menu to edit or recreate the profile.
+- **"Source save directory not found"** — The path in the profile is wrong, or the game has not yet created a save file. Check the actual save location in Windows Explorer.
 - **No backups are being created** — Make sure you're launching the game *through this script*, not by double-clicking the `.exe`. The script needs to detect the running game process.
-- **Backups fill the disk** — Lower `MaxAutoSaves` or raise `SaveFrequencyMinutes` in `config.ini`.
+- **Backups fill the disk** — Lower `MaxAutoSaves` or raise `SaveFrequencyMinutes` in the profile file.
 - **Restore didn't work** — Check `save_manager.log` for the error. The script writes a "PRE-RESTORE CURRENT" safety backup before each restore, so nothing should be lost.
 
 ## License
@@ -100,7 +111,7 @@ MIT — see `LICENSE`.
 
 ## Development
 
-The project ships with a unit test suite that covers the pure helpers, configuration handling, App-class behavior (with mocked `subprocess` and `input`), and the data-loss-critical restore and backup paths. No third-party dependencies are needed.
+The project ships with 58 unit tests that cover the pure helpers, configuration handling, App-class behavior (with mocked `subprocess` and `input`), and the data-loss-critical restore and backup paths. No third-party dependencies are needed.
 
 Run the tests:
 
@@ -116,7 +127,7 @@ To add a test, drop a `test_...` method into the appropriate `Test...` class in 
 
 ```
 pip install pyinstaller
-pyinstaller --onefile --name "Detroit Save Manager" savemanager.py
+pyinstaller --onefile --name "Save Manager" savemanager.py
 ```
 
-Output is at `dist/Detroit Save Manager.exe` (~8.5 MB).
+Output is at `dist/Save Manager.exe` (~8.5 MB).

@@ -2,10 +2,11 @@
 # -*- coding: utf-8 -*-
 
 """
-Detroit: Become Human Save Manager.
+Save Manager — universal game save backup & restore.
 
-Launches the game, creates timestamped save backups while it is running, and
-lets the player restore an older save before launch.
+Launches a game, creates timestamped save backups while it is running, and
+lets the player restore an older save before launch.  Supports per-game
+profiles so you can use it with any game.
 """
 
 import configparser
@@ -21,11 +22,12 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 
-APP_NAME = "Detroit: Become Human Save Manager"
+APP_NAME = "Save Manager"
 APP_VERSION = "3.0"
 CONFIG_FILE = "config.ini"
 LOG_FILE = "save_manager.log"
-GAME_PROCESS_NAME = "DetroitBecomeHuman.exe"
+PROFILES_DIR_NAME = "profiles"
+DEFAULT_PROCESS_NAME = "DetroitBecomeHuman.exe"
 DEFAULT_SAVE_DIR = Path.home() / "Saved Games" / "Quantic Dream" / "Detroit Become Human"
 INVALID_SESSION_CHARS = r'<>:"/\|?*'
 
@@ -40,6 +42,7 @@ def get_app_dir() -> Path:
 APP_DIR = get_app_dir()
 CONFIG_PATH = APP_DIR / CONFIG_FILE
 LOG_PATH = APP_DIR / LOG_FILE
+PROFILES_DIR = APP_DIR / PROFILES_DIR_NAME
 
 
 def configure_logging() -> None:
@@ -295,16 +298,63 @@ class SaveManager:
 
 class App:
     def __init__(self):
+        self.main_config_path = CONFIG_PATH
         self.config_manager = ConfigManager(CONFIG_PATH)
+        self.active_profile_path: Path | None = None
+        self.active_profile_name: str | None = None
+        self._init_config()
         self.save_manager = SaveManager(self.config_manager)
         self.game_path: Path | None = None
         self.game_working_dir: Path | None = None
+        self.game_process_name: str = DEFAULT_PROCESS_NAME
         self._get_game_executable_from_config()
+
+    def _init_config(self) -> None:
+        """If ActiveProfile is set in config.ini, delegate to that profile file."""
+        tmp = configparser.ConfigParser(interpolation=None)
+        tmp.read(str(self.main_config_path))
+        name = tmp.get("Settings", "ActiveProfile", fallback="")
+        if name:
+            p = PROFILES_DIR / f"{name}.ini"
+            if p.exists():
+                self.active_profile_name = name
+                self.active_profile_path = p
+                self.config_manager = ConfigManager(p)
+                logging.info("Active profile: %s (%s)", name, p)
+                return
+            logging.warning("Active profile '%s' not found at %s", name, p)
+        self.config_manager = ConfigManager(self.main_config_path)
+
+    def _save_config(self) -> None:
+        """Write config to the active file (profile or config.ini)."""
+        target = self.active_profile_path or self.main_config_path
+        with open(str(target), "w", encoding="utf-8") as f:
+            self.config_manager.config.write(f)
+
+    def _set_active_profile(self, name: str) -> None:
+        """Write ActiveProfile to config.ini without touching the profile file."""
+        self.active_profile_name = name
+        self.active_profile_path = PROFILES_DIR / f"{name}.ini"
+        cfg = configparser.ConfigParser(interpolation=None)
+        cfg["Settings"] = {"ActiveProfile": name}
+        with open(str(self.main_config_path), "w", encoding="utf-8") as f:
+            cfg.write(f)
+
+    def _clear_active_profile(self) -> None:
+        """Remove ActiveProfile so config.ini works standalone."""
+        self.active_profile_name = None
+        self.active_profile_path = None
+        cfg = configparser.ConfigParser(interpolation=None)
+        cfg.add_section("Settings")
+        cfg["Settings"]["ActiveProfile"] = ""
+        with open(str(self.main_config_path), "w", encoding="utf-8") as f:
+            cfg.write(f)
+        self.config_manager = ConfigManager(self.main_config_path)
 
     def _get_game_executable_from_config(self) -> None:
         game_path = self.config_manager.get_path("GameExecutablePath")
         if not game_path:
-            logging.error("FATAL: GameExecutablePath is not set in config.ini.")
+            logging.error("FATAL: GameExecutablePath is not set in config.")
             return
         if not game_path.is_file():
             logging.error("FATAL: Game executable was not found: %s", game_path)
@@ -312,19 +362,23 @@ class App:
 
         self.game_path = game_path
         self.game_working_dir = game_path.parent
+        self.game_process_name = self.config_manager.get(
+            "GameProcessName", DEFAULT_PROCESS_NAME,
+        )
         logging.info("Game executable located: %s", self.game_path)
         logging.info("Game working directory set to: %s", self.game_working_dir)
+        logging.info("Game process name: %s", self.game_process_name)
 
     def _is_game_running(self) -> bool:
         try:
             result = subprocess.run(
-                ["tasklist", "/FI", f"IMAGENAME eq {GAME_PROCESS_NAME}"],
+                ["tasklist", "/FI", f"IMAGENAME eq {self.game_process_name}"],
                 text=True,
                 capture_output=True,
                 creationflags=subprocess.CREATE_NO_WINDOW,
                 check=False,
             )
-            return GAME_PROCESS_NAME.lower() in result.stdout.lower()
+            return self.game_process_name.lower() in result.stdout.lower()
         except Exception as error:
             logging.warning("Could not check game process: %s", error)
             return False
@@ -338,68 +392,163 @@ class App:
             time.sleep(2)
         return False
 
-    def _first_run_wizard(self) -> bool:
+    def _list_profiles(self) -> list[str]:
+        """Return sorted list of profile names (filenames without .ini)."""
+        if not PROFILES_DIR.is_dir():
+            return []
+        return sorted(
+            p.stem for p in PROFILES_DIR.iterdir()
+            if p.suffix.lower() == ".ini"
+        )
+
+    def _create_profile_wizard(self, is_first: bool = False) -> bool:
+        """Interactive wizard that creates a new profile .ini file."""
         print(f"\n{'=' * 70}")
-        print(f"Welcome to {APP_NAME} v{APP_VERSION}!")
-        print(f"{'=' * 70}")
+        print(f"Create a new game profile")
+        print(f"{'=' * 70}\n")
 
-        current_raw = self.config_manager.get("GameExecutablePath")
-        if current_raw:
-            print(f"The config file has: {Path(current_raw).expanduser()}")
-            print("That file was not found. Let's fix it.\n")
-        else:
-            print("This looks like your first run. Let's set up the paths.\n")
-
+        name = None
         while True:
-            raw = input("Full path to DetroitBecomeHuman.exe: ").strip().strip('"\'')
+            raw = input("Friendly name for this game (e.g. 'Cyberpunk 2077'): ").strip()
             if not raw:
-                print("  Path cannot be empty.")
+                print("  Name cannot be empty.")
+                continue
+            cleaned = "".join(c for c in raw if c not in '<>:"/\\|?*')
+            if not cleaned:
+                print("  Name contains only invalid characters. Try again.")
+                continue
+            name = cleaned
+            break
+
+        cfg = configparser.ConfigParser(interpolation=None)
+        cfg["Settings"] = {}
+
+        print("\n--- Game executable ---")
+        current_raw = self.config_manager.get("GameExecutablePath", "")
+        while True:
+            hint = f" [{current_raw}]" if current_raw else ""
+            raw = input(f"Full path to the game .exe{hint}: ").strip().strip('"\'')
+            if not raw and current_raw:
+                raw = current_raw
+            if not raw:
+                print("  Path cannot be empty. Type 'skip' to cancel.")
                 continue
             if raw.lower() in ("skip", "exit", "quit"):
                 return False
 
             p = Path(raw).expanduser()
             if p.suffix.lower() != ".exe":
-                p = p / "DetroitBecomeHuman.exe"
-            p = p.resolve()
+                if p.is_dir():
+                    print("  That's a directory. Enter the full path including .exe.")
+                else:
+                    print("  Path must end with .exe")
+                continue
 
+            p = p.resolve()
             if not p.is_file():
                 print(f"  File not found: {p}")
                 print("  Check the path and try again, or type 'skip'.\n")
                 continue
 
+            cfg["Settings"]["GameExecutablePath"] = str(p)
+            cfg["Settings"]["GameProcessName"] = p.name
             self.game_path = p
             self.game_working_dir = p.parent
-            self.config_manager.config.set("Settings", "GameExecutablePath", str(p))
+            self.game_process_name = p.name
             break
 
-        default_save = str(DEFAULT_SAVE_DIR)
-        current_save = self.config_manager.get("SourceSavePath")
-        prompt = f"Save folder (Enter=default) [{current_save or default_save}]: "
-        raw = input(prompt).strip()
-        if raw:
-            self.config_manager.config.set("Settings", "SourceSavePath", raw)
+        print("\n--- Save folder ---")
+        current_save = self.config_manager.get("SourceSavePath", str(DEFAULT_SAVE_DIR))
+        raw = input(f"Save folder (Enter=default) [{current_save}]: ").strip()
+        cfg["Settings"]["SourceSavePath"] = raw or current_save
 
-        default_backup = str(Path.home() / "DetroitSaveBackups")
-        current_backup = self.config_manager.get("BackupStoragePath")
-        prompt = f"Backup folder (Enter=default) [{current_backup or default_backup}]: "
-        raw = input(prompt).strip()
-        if raw:
-            self.config_manager.config.set("Settings", "BackupStoragePath", raw)
+        print("\n--- Backup folder ---")
+        current_backup = self.config_manager.get("BackupStoragePath", str(Path.home() / "SaveManagerBackups"))
+        raw = input(f"Backup folder (Enter=default) [{current_backup}]: ").strip()
+        cfg["Settings"]["BackupStoragePath"] = raw or current_backup
 
-        with open(self.config_manager.path, "w", encoding="utf-8") as f:
-            self.config_manager.config.write(f)
-        logging.info("First-run wizard completed. Config saved to %s", self.config_manager.path)
-        print("\nConfiguration saved! Starting the Save Manager...\n")
+        PROFILES_DIR.mkdir(parents=True, exist_ok=True)
+        profile_path = PROFILES_DIR / f"{name}.ini"
+        with open(str(profile_path), "w", encoding="utf-8") as f:
+            cfg.write(f)
+
+        self.active_profile_name = name
+        self.active_profile_path = profile_path
+        self.config_manager = ConfigManager(profile_path)
+        self._set_active_profile(name)
+
+        logging.info("Created profile '%s' at %s", name, profile_path)
+        print(f"\nProfile '{name}' created and activated!")
         return True
+
+    def _first_run_wizard(self) -> bool:
+        """When no config exists, guide the user through creating a profile."""
+        print(f"\n{'=' * 70}")
+        print(f"Welcome to {APP_NAME} v{APP_VERSION}!")
+        print(f"{'=' * 70}")
+        print("This looks like your first run. Let's set up a game profile.\n")
+        return self._create_profile_wizard(is_first=True)
+
+    def _select_profile_menu(self) -> str | None:
+        """Show profile picker, return selected profile name or None to quit."""
+        profiles = self._list_profiles()
+        while True:
+            print("\n" + "=" * 70)
+            print(f"Game Profiles")
+            print("=" * 70)
+            if not profiles:
+                print("  No profiles saved yet.")
+            for i, p in enumerate(profiles, 1):
+                marker = "  <-- active" if p == self.active_profile_name else ""
+                print(f"  {i}) {p}{marker}")
+            print("-" * 30)
+            print("  N) Create new profile")
+            print("  Q) Back")
+            if self.active_profile_name:
+                print("  R) Remove active profile")
+
+            choice = input("\nSelect: ").strip().lower()
+            if choice == "q":
+                return None
+            if choice == "n":
+                if self._create_profile_wizard():
+                    return self.active_profile_name
+                continue
+            if choice == "r":
+                if self.active_profile_name:
+                    p = PROFILES_DIR / f"{self.active_profile_name}.ini"
+                    if p.exists():
+                        p.unlink()
+                        logging.info("Removed profile '%s'", self.active_profile_name)
+                    self._clear_active_profile()
+                    profiles = self._list_profiles()
+                    continue
+
+            try:
+                idx = int(choice) - 1
+                if 0 <= idx < len(profiles):
+                    name = profiles[idx]
+                    p = PROFILES_DIR / f"{name}.ini"
+                    if p.exists():
+                        self.active_profile_name = name
+                        self.active_profile_path = p
+                        self.config_manager = ConfigManager(p)
+                        self._set_active_profile(name)
+                        logging.info("Switched to profile '%s'", name)
+                        return name
+            except (ValueError, IndexError):
+                print("Invalid option.")
+                continue
 
     def _display_menu(self):
         while True:
             backups = self.save_manager.get_sorted_backups()
+            profile_tag = f" | Profile: [{self.active_profile_name}]" if self.active_profile_name else ""
             print("\n" + "=" * 70)
-            print(f"{APP_NAME} v{APP_VERSION} | Session: [{self.save_manager.session_name}]")
+            print(f"{APP_NAME} v{APP_VERSION}{profile_tag} | Session: [{self.save_manager.session_name}]")
             print("=" * 70)
             print(" 0) Continue with Current Save (Normal Start)")
+            print(" P) Switch game profile")
             print("-" * 30)
             if not backups:
                 print("No backups found yet for this session.")
@@ -413,6 +562,11 @@ class App:
             choice = input("\nSelect an option and press Enter: ").strip().lower()
             if choice == "q":
                 return None
+            if choice == "p":
+                self._select_profile_menu()
+                # Re-load save manager with new profile settings
+                self.save_manager = SaveManager(self.config_manager)
+                continue
             if choice == "":
                 print("Please enter a number or Q.")
                 continue
@@ -447,8 +601,21 @@ class App:
             return
 
         if not self.game_path or not self.game_working_dir:
-            if not self._first_run_wizard():
-                input("Setup cancelled. Press Enter to exit.")
+            profiles = self._list_profiles()
+            if not profiles:
+                if not self._first_run_wizard():
+                    input("Setup cancelled. Press Enter to exit.")
+                    return
+            elif not self.active_profile_name or not self.game_path:
+                if not self._select_profile_menu():
+                    input("No profile selected. Press Enter to exit.")
+                    return
+
+            self.save_manager = SaveManager(self.config_manager)
+            self._get_game_executable_from_config()
+
+            if not self.game_path or not self.game_working_dir:
+                input("Could not resolve game executable. Press Enter to exit.")
                 return
 
         action = self._display_menu()

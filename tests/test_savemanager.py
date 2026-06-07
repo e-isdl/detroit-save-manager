@@ -336,8 +336,10 @@ class TestAppProcessCheck(unittest.TestCase):
         self.source = self.tmpdir / "src"
         self.backup_root = self.tmpdir / "backups"
         self.fake_game = self.tmpdir / "fake_game.exe"
+        self.profiles_dir = self.tmpdir / "profiles"
         self.source.mkdir()
         self.fake_game.write_bytes(b"")
+        self.profiles_dir.mkdir()
         (self.source / "save.dat").write_text("v1")
         config_path = self.tmpdir / "config.ini"
         config_path.write_text(
@@ -349,12 +351,15 @@ class TestAppProcessCheck(unittest.TestCase):
             "MaxAutoSaves = 50\n",
             encoding="utf-8",
         )
-        self._patcher = patch("savemanager.CONFIG_PATH", config_path)
-        self._patcher.start()
+        self._patcher1 = patch("savemanager.CONFIG_PATH", config_path)
+        self._patcher2 = patch("savemanager.PROFILES_DIR", self.profiles_dir)
+        self._patcher1.start()
+        self._patcher2.start()
         self.app = App()
 
     def tearDown(self):
-        self._patcher.stop()
+        self._patcher1.stop()
+        self._patcher2.stop()
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def test_is_game_running_true_when_process_in_output(self):
@@ -387,8 +392,10 @@ class TestAppMenu(unittest.TestCase):
         self.source = self.tmpdir / "src"
         self.backup_root = self.tmpdir / "backups"
         self.fake_game = self.tmpdir / "fake_game.exe"
+        self.profiles_dir = self.tmpdir / "profiles"
         self.source.mkdir()
         self.fake_game.write_bytes(b"")
+        self.profiles_dir.mkdir()
         (self.source / "save.dat").write_text("v1")
         config_path = self.tmpdir / "config.ini"
         config_path.write_text(
@@ -400,13 +407,16 @@ class TestAppMenu(unittest.TestCase):
             "MaxAutoSaves = 50\n",
             encoding="utf-8",
         )
-        self._patcher = patch("savemanager.CONFIG_PATH", config_path)
-        self._patcher.start()
+        self._patcher1 = patch("savemanager.CONFIG_PATH", config_path)
+        self._patcher2 = patch("savemanager.PROFILES_DIR", self.profiles_dir)
+        self._patcher1.start()
+        self._patcher2.start()
         self.app = App()
         self.app.save_manager.backup_current_save()
 
     def tearDown(self):
-        self._patcher.stop()
+        self._patcher1.stop()
+        self._patcher2.stop()
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def test_q_returns_none(self):
@@ -445,7 +455,7 @@ class TestAppMenu(unittest.TestCase):
         self.app.game_path = None
         self.app.game_working_dir = None
         self.app.config_manager.config.set("Settings", "GameExecutablePath", "")
-        with patch("builtins.input", return_value="skip"):
+        with patch("builtins.input", side_effect=["Test", "skip"]):
             self.assertFalse(self.app._first_run_wizard())
         self.assertIsNone(self.app.game_path)
 
@@ -453,7 +463,7 @@ class TestAppMenu(unittest.TestCase):
         self.app.game_path = None
         self.app.game_working_dir = None
         self.app.config_manager.config.set("Settings", "GameExecutablePath", "")
-        with patch("builtins.input", side_effect=[str(self.fake_game), "", ""]):
+        with patch("builtins.input", side_effect=["TestGame", str(self.fake_game), "", ""]):
             self.assertTrue(self.app._first_run_wizard())
         self.assertEqual(self.app.game_path, self.fake_game)
         self.assertEqual(str(self.app.game_working_dir), str(self.tmpdir))
@@ -463,7 +473,7 @@ class TestAppMenu(unittest.TestCase):
         self.app.game_working_dir = None
         self.app.config_manager.config.set("Settings", "GameExecutablePath", "")
         bad = str(self.tmpdir / "nonexistent.exe")
-        with patch("builtins.input", side_effect=[bad, str(self.fake_game), "", ""]):
+        with patch("builtins.input", side_effect=["TestGame", bad, str(self.fake_game), "", ""]):
             self.assertTrue(self.app._first_run_wizard())
         self.assertEqual(self.app.game_path, self.fake_game)
 
