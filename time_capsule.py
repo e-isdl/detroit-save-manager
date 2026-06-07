@@ -425,6 +425,11 @@ class App:
 
         print("\n--- Game executable ---")
         current_raw = self.config_manager.get("GameExecutablePath", "")
+        print(f"  Typical install locations:")
+        print(f"    C:\\Program Files\\<Game>\\<Game>.exe")
+        print(f"    C:\\Program Files (x86)\\<Game>\\<Game>.exe")
+        if current_raw:
+            print(f"    Or paste the path you used before: {current_raw}")
         while True:
             hint = f" [{current_raw}]" if current_raw else ""
             raw = input(f"Full path to the game .exe{hint}: ").strip().strip('"\'')
@@ -459,87 +464,17 @@ class App:
 
         print("\n--- Save folder ---")
         current_save = self.config_manager.get("SourceSavePath", str(DEFAULT_SAVE_DIR))
-        save_roots = [
-            Path.home() / "Saved Games",
-            Path.home() / "Documents" / "My Games",
-        ]
-        save_options = []
-        for root in save_roots:
-            if root.is_dir():
-                for child in sorted(root.iterdir()):
-                    if child.is_dir():
-                        save_options.append((root.name, child))
-        if save_options:
-            print("  Found these save folders on your PC:")
-            seen = set()
-            for i, (parent, child) in enumerate(save_options, 1):
-                p = str(child)
-                if p not in seen:
-                    print(f"  {i}) {p}")
-                    seen.add(p)
-            print("  0) Enter a different path")
-            print(f"  Enter) Use default: {current_save}")
-            choice = input("\nPick a save folder [or Enter for default]: ").strip()
-            if choice == "0":
-                raw = input(f"Full path to your save folder: ").strip()
-                if raw:
-                    cfg["Settings"]["SourceSavePath"] = raw
-                else:
-                    cfg["Settings"]["SourceSavePath"] = current_save
-            elif choice and choice.isdigit():
-                idx = int(choice) - 1
-                seen_list = []
-                for parent, child in save_options:
-                    p = str(child)
-                    if p not in seen_list:
-                        seen_list.append(p)
-                if 0 <= idx < len(seen_list):
-                    cfg["Settings"]["SourceSavePath"] = seen_list[idx]
-                else:
-                    cfg["Settings"]["SourceSavePath"] = current_save
-            else:
-                cfg["Settings"]["SourceSavePath"] = current_save
-        else:
-            print("  Could not find any saved game folders automatically.")
-            print(f"  (Look in: {save_roots[0]} or {save_roots[1]})")
-            raw = input(f"Save folder (Enter=default) [{current_save}]: ").strip()
-            cfg["Settings"]["SourceSavePath"] = raw or current_save
+        print(f"  Typical save locations:")
+        print(f"    C:\\Users\\<You>\\Saved Games\\<Game>")
+        print(f"    C:\\Users\\<You>\\Documents\\My Games\\<Game>")
+        raw = input(f"Paste your save folder path, or Enter for default [{current_save}]: ").strip()
+        cfg["Settings"]["SourceSavePath"] = raw or current_save
 
         print("\n--- Backup folder ---")
-        default_backup = str(Path.home() / "TimeCapsuleBackups")
-        current_backup = self.config_manager.get("BackupStoragePath", default_backup)
-        print(f"  Backups go here: {current_backup}")
-        print("  (Pick a folder on the same drive as your game for fast copies.)")
-        backup_roots = [
-            Path.home() / "TimeCapsuleBackups",
-            Path.home() / "Desktop",
-            Path.home() / "Documents",
-        ]
-        backup_options = []
-        for root in backup_roots:
-            if root.exists():
-                backup_options.append(root)
-        if len(backup_options) > 1:
-            print("  Suggestions:")
-            for i, p in enumerate(backup_options, 1):
-                print(f"  {i}) {p}")
-            print(f"  0) Enter a different path")
-            print(f"  Enter) Use default: {current_backup}")
-            choice = input(f"\nPick a backup folder [or Enter for default]: ").strip()
-            if choice == "0":
-                raw = input(f"Backup folder path: ").strip()
-                cfg["Settings"]["BackupStoragePath"] = raw or current_backup
-            elif choice and choice.isdigit():
-                idx = int(choice) - 1
-                if 0 <= idx < len(backup_options):
-                    cfg["Settings"]["BackupStoragePath"] = str(backup_options[idx] / "TimeCapsuleBackups")
-                else:
-                    cfg["Settings"]["BackupStoragePath"] = current_backup
-            else:
-                cfg["Settings"]["BackupStoragePath"] = current_backup
-        else:
-            raw = input(f"Backup folder (Enter=default) [{current_backup}]: ").strip()
-            cfg["Settings"]["BackupStoragePath"] = raw or current_backup
+        current_backup = self.config_manager.get("BackupStoragePath", str(Path.home() / "TimeCapsuleBackups"))
+        print(f"  Where to store the backups. Default is fine for most people.")
+        raw = input(f"Backup folder (Enter=default) [{current_backup}]: ").strip()
+        cfg["Settings"]["BackupStoragePath"] = raw or current_backup
 
         PROFILES_DIR.mkdir(parents=True, exist_ok=True)
         profile_path = PROFILES_DIR / f"{name}.ini"
