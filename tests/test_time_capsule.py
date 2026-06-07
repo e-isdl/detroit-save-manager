@@ -9,10 +9,10 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from savemanager import (
+from time_capsule import (
     App,
     ConfigManager,
-    SaveManager,
+    Vault,
     format_age,
     sanitize_session_name,
     unique_directory_path,
@@ -118,16 +118,16 @@ class TestConfigManager(unittest.TestCase):
     def test_expandvars_in_path(self):
         self.config_path.write_text(
             "[Settings]\n"
-            "BackupStoragePath = %USERPROFILE%/savemanager-test-backups\n",
+            "BackupStoragePath = %USERPROFILE%/time-capsule-test-backups\n",
             encoding="utf-8",
         )
         cm = ConfigManager(self.config_path)
         result = cm.get_path("BackupStoragePath")
         self.assertNotIn("%USERPROFILE%", str(result))
-        self.assertTrue(str(result).endswith("savemanager-test-backups"))
+        self.assertTrue(str(result).endswith("time-capsule-test-backups"))
 
 
-class TestSaveManager(unittest.TestCase):
+class TestVault(unittest.TestCase):
     def _make_config(self, max_saves=50):
         self.config_path = self.tmpdir / "config.ini"
         self.config_path.write_text(
@@ -147,45 +147,45 @@ class TestSaveManager(unittest.TestCase):
         self.source.mkdir()
         (self.source / "save1.dat").write_text("v1")
         (self.source / "save2.dat").write_text("v1")
-        self.sm = SaveManager(self._make_config())
+        self.vault = Vault(self._make_config())
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def test_backup_creates_copy(self):
-        result = self.sm.backup_current_save()
+        result = self.vault.backup_current_save()
         self.assertIsNotNone(result)
         self.assertTrue(result.is_dir())
         self.assertEqual((result / "save1.dat").read_text(), "v1")
         self.assertEqual((result / "save2.dat").read_text(), "v1")
 
     def test_backup_label_added_to_name(self):
-        result = self.sm.backup_current_save("LAUNCH")
+        result = self.vault.backup_current_save("LAUNCH")
         self.assertIsNotNone(result)
         self.assertIn("LAUNCH", result.name)
 
     def test_backup_skips_empty_source(self):
         for entry in self.source.iterdir():
             entry.unlink()
-        result = self.sm.backup_current_save()
+        result = self.vault.backup_current_save()
         self.assertIsNone(result)
 
     def test_restore_copies_backup_to_source(self):
-        backup = self.sm.backup_current_save()
+        backup = self.vault.backup_current_save()
         (self.source / "save1.dat").write_text("v2")
-        ok = self.sm.restore_save(backup)
+        ok = self.vault.restore_save(backup)
         self.assertTrue(ok)
         self.assertEqual((self.source / "save1.dat").read_text(), "v1")
         self.assertEqual((self.source / "save2.dat").read_text(), "v1")
 
     def test_restore_creates_safety_backup(self):
-        backup = self.sm.backup_current_save()
+        backup = self.vault.backup_current_save()
         (self.source / "save1.dat").write_text("v2")
-        count_before = len(self.sm.get_sorted_backups())
-        self.sm.restore_save(backup)
-        count_after = len(self.sm.get_sorted_backups())
+        count_before = len(self.vault.get_sorted_backups())
+        self.vault.restore_save(backup)
+        count_after = len(self.vault.get_sorted_backups())
         self.assertEqual(count_after, count_before + 1)
-        safety = [b for b in self.sm.get_sorted_backups() if "PRE-RESTORE" in b.name]
+        safety = [b for b in self.vault.get_sorted_backups() if "PRE-RESTORE" in b.name]
         self.assertEqual(len(safety), 1)
         self.assertEqual((safety[0] / "save1.dat").read_text(), "v2")
 
@@ -193,80 +193,80 @@ class TestSaveManager(unittest.TestCase):
         other_dir = self.tmpdir / "other"
         other_dir.mkdir()
         (other_dir / "save1.dat").write_text("v9")
-        ok = self.sm.restore_save(other_dir)
+        ok = self.vault.restore_save(other_dir)
         self.assertFalse(ok)
         self.assertEqual((self.source / "save1.dat").read_text(), "v1")
 
     def test_cleanup_stale_temporaries_removes_orphan(self):
-        stale = self.sm.session_backup_dir / "stale.tmp"
+        stale = self.vault.session_backup_dir / "stale.tmp"
         stale.mkdir()
         (stale / "junk").write_text("junk")
-        self.sm._cleanup_stale_temporaries()
+        self.vault._cleanup_stale_temporaries()
         self.assertFalse(stale.exists())
 
     def test_cleanup_stale_temporaries_keeps_real_backups(self):
-        good = self.sm.session_backup_dir / "realfolder"
+        good = self.vault.session_backup_dir / "realfolder"
         good.mkdir()
-        self.sm._cleanup_stale_temporaries()
+        self.vault._cleanup_stale_temporaries()
         self.assertTrue(good.exists())
 
     def test_cleanup_old_saves_keeps_max(self):
-        sm = SaveManager(self._make_config(max_saves=3))
+        vault = Vault(self._make_config(max_saves=3))
         for _ in range(5):
-            sm.backup_current_save()
-        self.assertEqual(len(sm.get_sorted_backups()), 3)
+            vault.backup_current_save()
+        self.assertEqual(len(vault.get_sorted_backups()), 3)
 
     def test_cleanup_disabled_when_zero(self):
-        sm = SaveManager(self._make_config(max_saves=0))
+        vault = Vault(self._make_config(max_saves=0))
         for _ in range(5):
-            sm.backup_current_save()
-        self.assertEqual(len(sm.get_sorted_backups()), 5)
+            vault.backup_current_save()
+        self.assertEqual(len(vault.get_sorted_backups()), 5)
 
     def test_cleanup_with_negative_max_warns_and_skips(self):
-        sm = SaveManager(self._make_config(max_saves=-5))
+        vault = Vault(self._make_config(max_saves=-5))
         for _ in range(3):
-            sm.backup_current_save()
-        self.assertEqual(len(sm.get_sorted_backups()), 3)
+            vault.backup_current_save()
+        self.assertEqual(len(vault.get_sorted_backups()), 3)
 
     def test_backup_copies_subdirectories(self):
         sub = self.source / "subdir"
         sub.mkdir()
         (sub / "nested.dat").write_text("nested-v1")
-        result = self.sm.backup_current_save()
+        result = self.vault.backup_current_save()
         self.assertEqual((result / "subdir" / "nested.dat").read_text(), "nested-v1")
 
     def test_get_sorted_backups_excludes_tmp_folders(self):
-        self.sm.backup_current_save()
-        (self.sm.session_backup_dir / "leftover.tmp").mkdir()
-        names = [b.name for b in self.sm.get_sorted_backups()]
+        self.vault.backup_current_save()
+        (self.vault.session_backup_dir / "leftover.tmp").mkdir()
+        names = [b.name for b in self.vault.get_sorted_backups()]
         self.assertNotIn("leftover.tmp", names)
         self.assertEqual(len(names), 1)
 
     def test_get_sorted_backups_sorts_newest_first(self):
-        first = self.sm.backup_current_save()
+        first = self.vault.backup_current_save()
         time.sleep(1.05)
-        second = self.sm.backup_current_save()
-        ordered = self.sm.get_sorted_backups()
+        second = self.vault.backup_current_save()
+        ordered = self.vault.get_sorted_backups()
         self.assertEqual(ordered[0].name, second.name)
         self.assertEqual(ordered[1].name, first.name)
 
     def test_backup_label_with_spaces_preserved(self):
-        result = self.sm.backup_current_save("LAUNCH 2")
+        result = self.vault.backup_current_save("LAUNCH 2")
         self.assertIn("LAUNCH 2", result.name)
 
     def test_restore_creates_source_dir_if_missing(self):
-        backup = self.sm.backup_current_save()
+        backup = self.vault.backup_current_save()
         shutil.rmtree(self.source)
-        ok = self.sm.restore_save(backup)
+        ok = self.vault.restore_save(backup)
         self.assertTrue(ok)
         self.assertTrue(self.source.is_dir())
         self.assertEqual((self.source / "save1.dat").read_text(), "v1")
 
     def test_backup_idempotent_creates_distinct_folders(self):
-        first = self.sm.backup_current_save()
-        second = self.sm.backup_current_save()
+        first = self.vault.backup_current_save()
+        second = self.vault.backup_current_save()
         self.assertNotEqual(first.name, second.name)
-        self.assertEqual(len(self.sm.get_sorted_backups()), 2)
+        self.assertEqual(len(self.vault.get_sorted_backups()), 2)
 
 
 class TestConfigManagerExtras(unittest.TestCase):
@@ -351,8 +351,8 @@ class TestAppProcessCheck(unittest.TestCase):
             "MaxAutoSaves = 50\n",
             encoding="utf-8",
         )
-        self._patcher1 = patch("savemanager.CONFIG_PATH", config_path)
-        self._patcher2 = patch("savemanager.PROFILES_DIR", self.profiles_dir)
+        self._patcher1 = patch("time_capsule.CONFIG_PATH", config_path)
+        self._patcher2 = patch("time_capsule.PROFILES_DIR", self.profiles_dir)
         self._patcher1.start()
         self._patcher2.start()
         self.app = App()
@@ -364,16 +364,16 @@ class TestAppProcessCheck(unittest.TestCase):
 
     def test_is_game_running_true_when_process_in_output(self):
         mock_result = MagicMock(stdout="INFO: DetroitBecomeHuman.exe  12345")
-        with patch("savemanager.subprocess.run", return_value=mock_result):
+        with patch("time_capsule.subprocess.run", return_value=mock_result):
             self.assertTrue(self.app._is_game_running())
 
     def test_is_game_running_false_when_process_not_in_output(self):
         mock_result = MagicMock(stdout="INFO: No tasks are running...")
-        with patch("savemanager.subprocess.run", return_value=mock_result):
+        with patch("time_capsule.subprocess.run", return_value=mock_result):
             self.assertFalse(self.app._is_game_running())
 
     def test_is_game_running_false_on_subprocess_exception(self):
-        with patch("savemanager.subprocess.run", side_effect=Exception("boom")):
+        with patch("time_capsule.subprocess.run", side_effect=Exception("boom")):
             self.assertFalse(self.app._is_game_running())
 
     def test_wait_for_game_process_returns_true_when_found(self):
@@ -382,7 +382,7 @@ class TestAppProcessCheck(unittest.TestCase):
 
     def test_wait_for_game_process_returns_false_on_timeout(self):
         with patch.object(App, "_is_game_running", return_value=False), \
-             patch("savemanager.time.sleep"):
+             patch("time_capsule.time.sleep"):
             self.assertFalse(self.app._wait_for_game_process(timeout=1))
 
 
@@ -407,12 +407,12 @@ class TestAppMenu(unittest.TestCase):
             "MaxAutoSaves = 50\n",
             encoding="utf-8",
         )
-        self._patcher1 = patch("savemanager.CONFIG_PATH", config_path)
-        self._patcher2 = patch("savemanager.PROFILES_DIR", self.profiles_dir)
+        self._patcher1 = patch("time_capsule.CONFIG_PATH", config_path)
+        self._patcher2 = patch("time_capsule.PROFILES_DIR", self.profiles_dir)
         self._patcher1.start()
         self._patcher2.start()
         self.app = App()
-        self.app.save_manager.backup_current_save()
+        self.app.vault.backup_current_save()
 
     def tearDown(self):
         self._patcher1.stop()

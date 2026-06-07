@@ -33,10 +33,10 @@ Each backup is a **time capsule** — a preserved moment you can always return t
 
 **Option B — Python script**
 
-1. Download `savemanager.py`.
+1. Download `time_capsule.py`.
 2. Run it:
    ```
-   python savemanager.py
+   python time_capsule.py
    ```
 3. The first-run wizard will guide you through creating a profile.
 
@@ -116,18 +116,18 @@ The project ships with 58 unit tests that cover the pure helpers, configuration 
 Run the tests:
 
 ```
-python -m unittest tests.test_savemanager -v
+python -m unittest tests.test_time_capsule -v
 ```
 
 Tests run automatically on push and pull request via the workflow in `.github/workflows/test.yml` (Windows runner, Python 3.10–3.13).
 
-To add a test, drop a `test_...` method into the appropriate `Test...` class in `tests/test_savemanager.py`. New test classes can be added in the same file.
+To add a test, drop a `test_...` method into the appropriate `Test...` class in `tests/test_time_capsule.py`. New test classes can be added in the same file.
 
 **Building the .exe (from source)**
 
 ```
 pip install pyinstaller
-pyinstaller --onefile --name "Time Capsule" savemanager.py
+pyinstaller --onefile --name "Time Capsule" time_capsule.py
 ```
 
 Output is at `dist/Time Capsule.exe` (~8.5 MB).

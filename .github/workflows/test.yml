@@ -25,4 +25,4 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Run tests
-        run: python -m unittest tests.test_savemanager -v
+        run: python -m unittest tests.test_time_capsule -v

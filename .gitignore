@@ -12,10 +12,11 @@ dist/
 *.spec
 
 *.log
-save_manager.log.*
+time_capsule.log.*
 *.log.[0-9]
 
 config.ini
+profiles/
 
 backupsave/
 DetroitSaveBackups/

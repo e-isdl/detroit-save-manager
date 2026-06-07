@@ -1,4 +1,4 @@
-# savemanager.py
+# time_capsule.py
 # -*- coding: utf-8 -*-
 
 """
@@ -143,7 +143,7 @@ class ConfigManager:
         return Path(expanded)
 
 
-class SaveManager:
+class Vault:
     """Manages backup, restore, and cleanup operations."""
 
     def __init__(self, config: ConfigManager):
@@ -303,7 +303,7 @@ class App:
         self.active_profile_path: Path | None = None
         self.active_profile_name: str | None = None
         self._init_config()
-        self.save_manager = SaveManager(self.config_manager)
+        self.vault = Vault(self.config_manager)
         self.game_path: Path | None = None
         self.game_working_dir: Path | None = None
         self.game_process_name: str = DEFAULT_PROCESS_NAME
@@ -542,10 +542,10 @@ class App:
 
     def _display_menu(self):
         while True:
-            backups = self.save_manager.get_sorted_backups()
+            backups = self.vault.get_sorted_backups()
             profile_tag = f" | Profile: [{self.active_profile_name}]" if self.active_profile_name else ""
             print("\n" + "=" * 70)
-            print(f"{APP_NAME} v{APP_VERSION}{profile_tag} | Session: [{self.save_manager.session_name}]")
+            print(f"{APP_NAME} v{APP_VERSION}{profile_tag} | Session: [{self.vault.session_name}]")
             print("=" * 70)
             print(" 0) Continue with Current Save (Normal Start)")
             print(" P) Switch game profile")
@@ -564,8 +564,8 @@ class App:
                 return None
             if choice == "p":
                 self._select_profile_menu()
-                # Re-load save manager with new profile settings
-                self.save_manager = SaveManager(self.config_manager)
+                # Re-load vault with new profile settings
+                self.vault = Vault(self.config_manager)
                 continue
             if choice == "":
                 print("Please enter a number or Q.")
@@ -588,7 +588,7 @@ class App:
                 if confirm != "yes":
                     print("Restore cancelled.")
                     continue
-                if self.save_manager.restore_save(selected):
+                if self.vault.restore_save(selected):
                     return "start"
                 input("\nRestore failed. Check the log, then press Enter to return to menu.")
             else:
@@ -611,7 +611,7 @@ class App:
                     input("No profile selected. Press Enter to exit.")
                     return
 
-            self.save_manager = SaveManager(self.config_manager)
+            self.vault = Vault(self.config_manager)
             self._get_game_executable_from_config()
 
             if not self.game_path or not self.game_working_dir:
@@ -625,7 +625,7 @@ class App:
 
         if self.config_manager.getboolean("LaunchBackup", True):
             logging.info("Creating launch backup before starting the game.")
-            self.save_manager.backup_current_save("LAUNCH")
+            self.vault.backup_current_save("LAUNCH")
 
         logging.info("Starting game...")
         try:
@@ -637,7 +637,7 @@ class App:
 
         if not self._wait_for_game_process(timeout=60):
             logging.error("Game process did not appear within 60 seconds.")
-            input("The game may have failed to start. Check save_manager.log, then press Enter to exit.")
+            input(f"The game may have failed to start. Check {LOG_FILE}, then press Enter to exit.")
             return
 
         self.monitor_game()
@@ -654,13 +654,13 @@ class App:
 
         while self._is_game_running():
             if time.time() >= next_save_time:
-                self.save_manager.backup_current_save()
+                self.vault.backup_current_save()
                 next_save_time = time.time() + save_frequency_sec
             time.sleep(15)
 
         logging.info("Game process has ended. Performing one final backup.")
-        self.save_manager.backup_current_save("FINAL")
-        logging.info("Save Manager is now closing. Goodbye.")
+        self.vault.backup_current_save("FINAL")
+        logging.info("Time Capsule is now closing. Goodbye.")
 
 
 if __name__ == "__main__":
@@ -668,7 +668,7 @@ if __name__ == "__main__":
     try:
         App().run()
     except KeyboardInterrupt:
-        logging.info("Save Manager stopped by user.")
+        logging.info("Time Capsule stopped by user.")
     except Exception as error:
         logging.error("A critical and unexpected error occurred: %s", error, exc_info=True)
-        input("A critical error occurred. Check save_manager.log, then press Enter to exit.")
+        input(f"A critical error occurred. Check {LOG_FILE}, then press Enter to exit.")
